@@ -83,3 +83,12 @@ _SANDBOX_TRASH/
 GATEWAY_API_KEY.txt
 *recovery-codes*
 credentials.json
+
+# --- build artifacts ---
+node_modules/
+dist/
+build/
+web-build/
+_expo/
+.expo/
+.expo-shared/
