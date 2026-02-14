@@ -21,23 +21,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
-      - name: Install + Build (with fallback)
+      - name: Install
         run: |
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-fund --no-audit
+          fi
+
+      - name: Build
+        run: |
           if npm run | grep -qE '^\s+build'; then
             npm run build
           else
-            npx expo export -p web
+            echo "No hay script build en package.json"
+            npm run
+            exit 1
           fi
 
           if [ -d dist ]; then echo "PUBLISH_DIR=dist" >> $GITHUB_ENV; fi
-          if [ -d build ]; then echo "PUBLISH_DIR=build" >> $GITHUB_ENV; fi
-          if [ -d web-build ]; then echo "PUBLISH_DIR=web-build" >> $GITHUB_ENV; fi
-
           if [ -z "${PUBLISH_DIR:-}" ]; then
-            echo "No encuentro carpeta de salida (dist/build/web-build)."
+            echo "No encuentro carpeta dist (salida del build)."
             ls -la
             exit 1
           fi
