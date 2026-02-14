@@ -1,0 +1,7 @@
+{
+  "name": "ScanKey Oficial",
+  "description": "",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
