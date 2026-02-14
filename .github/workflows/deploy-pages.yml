@@ -1,4 +1,4 @@
-name: Deploy Studio to Pages
+name: Deploy Pages (Studio)
 
 on:
   push:
@@ -26,34 +26,25 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build (try build, else expo export)
+      - name: Build to dist
         run: |
           set -e
           if npm run | grep -qE '^\s+build'; then
             npm run build
           else
-            npx expo export -p web
+            npx expo export -p web --output-dir dist
           fi
 
-          if [ -d dist ]; then echo "PUBLISH_DIR=dist" >> $GITHUB_ENV; fi
-          if [ -d build ]; then echo "PUBLISH_DIR=build" >> $GITHUB_ENV; fi
-          if [ -d web-build ]; then echo "PUBLISH_DIR=web-build" >> $GITHUB_ENV; fi
+          test -d dist || (echo "ERROR: no existe dist/" && ls -la && exit 1)
 
-          if [ -z "${PUBLISH_DIR:-}" ]; then
-            echo "No encuentro carpeta de salida (dist/build/web-build)."
-            ls -la
-            exit 1
-          fi
-
-      - name: Prepare Pages files
-        run: |
-          echo "studio.scankeyapp.com" > "${PUBLISH_DIR}/CNAME"
-          touch "${PUBLISH_DIR}/.nojekyll"
+          echo "studio.scankeyapp.com" > dist/CNAME
+          touch dist/.nojekyll
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: ${{ env.PUBLISH_DIR }}
+          publish_dir: dist
           force_orphan: true
+          enable_jekyll: false
