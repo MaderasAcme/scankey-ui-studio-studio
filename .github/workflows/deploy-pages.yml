@@ -30,19 +30,20 @@ jobs:
             npm install --no-fund --no-audit
           fi
 
-      - name: Build
+      - name: Build (vite/expo fallback)
         run: |
           if npm run | grep -qE '^\s+build'; then
             npm run build
           else
-            echo "No hay script build en package.json"
-            npm run
-            exit 1
+            npx expo export -p web
           fi
 
           if [ -d dist ]; then echo "PUBLISH_DIR=dist" >> $GITHUB_ENV; fi
+          if [ -d build ]; then echo "PUBLISH_DIR=build" >> $GITHUB_ENV; fi
+          if [ -d web-build ]; then echo "PUBLISH_DIR=web-build" >> $GITHUB_ENV; fi
+
           if [ -z "${PUBLISH_DIR:-}" ]; then
-            echo "No encuentro carpeta dist (salida del build)."
+            echo "No encuentro carpeta de salida (dist/build/web-build)."
             ls -la
             exit 1
           fi
