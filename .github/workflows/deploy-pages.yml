@@ -1,4 +1,4 @@
-name: Deploy Studio to Pages (static-first)
+name: Deploy Studio to Pages
 
 on:
   push:
@@ -13,23 +13,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare publish dir (static)
-        run: |
-          mkdir -p _public
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'node_modules' \
-            --exclude '_public' \
-            ./ _public/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-          test -f _public/index.html || (echo "FALTA index.html en la raíz del repo (main)."; ls -la; exit 1)
-          echo "PUBLISH_DIR=_public" >> $GITHUB_ENV
+      - name: Install
+        run: npm ci
+
+      - name: Build (try build, else expo export)
+        run: |
+          set -e
+          if npm run | grep -qE '^\s+build'; then
+            npm run build
+          else
+            npx expo export -p web
+          fi
+
+          if [ -d dist ]; then echo "PUBLISH_DIR=dist" >> $GITHUB_ENV; fi
+          if [ -d build ]; then echo "PUBLISH_DIR=build" >> $GITHUB_ENV; fi
+          if [ -d web-build ]; then echo "PUBLISH_DIR=web-build" >> $GITHUB_ENV; fi
+
+          if [ -z "${PUBLISH_DIR:-}" ]; then
+            echo "No encuentro carpeta de salida (dist/build/web-build)."
+            ls -la
+            exit 1
+          fi
+
+      - name: Prepare Pages files
+        run: |
+          echo "studio.scankeyapp.com" > "${PUBLISH_DIR}/CNAME"
+          touch "${PUBLISH_DIR}/.nojekyll"
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
@@ -37,6 +56,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: ${{ env.PUBLISH_DIR }}
-          cname: studio.scankeyapp.com
           force_orphan: true
-          enable_jekyll: false
