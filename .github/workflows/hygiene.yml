@@ -1,0 +1,34 @@
+name: Repo hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Block build artifacts tracked
+        run: |
+          set -euo pipefail
+          BAD=$(git ls-tree -r --name-only HEAD | egrep '^(node_modules/|dist/|build/|web-build/|_expo/|\.expo/|\.expo-shared/)' || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Artifacts trackeados:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ OK: no artifacts trackeados"
+
+      - name: Block huge files (>25MB)
+        run: |
+          set -euo pipefail
+          BIG=$(git ls-tree -r --long HEAD | awk '$4 > 26214400 {print $0}' || true)
+          if [ -n "$BIG" ]; then
+            echo "❌ Archivos >25MB detectados:"
+            echo "$BIG"
+            exit 1
+          fi
+          echo "✅ OK: no huge files"
