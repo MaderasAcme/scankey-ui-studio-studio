@@ -1,8 +1,9 @@
-name: Deploy Pages (gh-pages)
+name: Deploy Studio to Pages (static-first)
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -17,21 +18,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install
+      - name: Prepare publish dir (static)
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          mkdir -p _public
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude '_public' \
+            ./ _public/
 
-      - name: Build (Expo Web -> dist)
-        run: npm run build
+          test -f _public/index.html || (echo "FALTA index.html en la raíz del repo (main)."; ls -la; exit 1)
+          echo "PUBLISH_DIR=_public" >> $GITHUB_ENV
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          cname: scankeyapp.com
+          publish_branch: gh-pages
+          publish_dir: ${{ env.PUBLISH_DIR }}
+          cname: studio.scankeyapp.com
+          force_orphan: true
           enable_jekyll: false
