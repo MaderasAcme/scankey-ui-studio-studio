@@ -92,3 +92,12 @@ web-build/
 _expo/
 .expo/
 .expo-shared/
+
+# --- build artifacts ---
+node_modules/
+dist/
+build/
+web-build/
+_expo/
+.expo/
+.expo-shared/
