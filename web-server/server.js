@@ -1,0 +1,79 @@
+import express from "express";
+import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PORT = Number(process.env.PORT || 8080);
+const GW_URL = process.env.GW_URL;
+const GW_API_KEY = process.env.GW_API_KEY;
+
+if (!GW_URL) { console.error("Missing GW_URL"); process.exit(1); }
+if (!GW_API_KEY) { console.error("Missing GW_API_KEY"); process.exit(1); }
+
+const app = express();
+app.disable("x-powered-by");
+
+// --- static (Vite dist) ---
+const DIST = path.join(__dirname, "..", "dist");
+app.use(express.static(DIST));
+
+// --- health local ---
+app.get("/healthz", (_req, res) => res.json({ ok: true, service: "scankey-web" }));
+
+function mapUpstreamPath(p) {
+  // FastAPI openapi/docs están en raíz
+  if (p === "/api/openapi.json") return "/openapi.json";
+  if (p === "/api/docs") return "/docs";
+  if (p.startsWith("/api/docs/")) return p.replace("/api/docs", "/docs");
+  if (p === "/api/redoc") return "/redoc";
+  if (p === "/api/health") return "/health";
+  // El gateway REAL usa /api/analyze-key (NO tocar)
+  return p;
+}
+
+// --- API proxy: /api/* -> gateway ---
+app.all("/api/*", async (req, res) => {
+  try {
+    const upstreamPath = mapUpstreamPath(req.originalUrl);
+    const targetUrl = new URL(upstreamPath, GW_URL).toString();
+
+    const headers = { ...req.headers };
+    delete headers.host;
+    delete headers.connection;
+    delete headers["content-length"];
+    delete headers.expect;
+
+    headers["x-api-key"] = GW_API_KEY;
+
+    const method = req.method.toUpperCase();
+    const body = (method === "GET" || method === "HEAD") ? undefined : req;
+
+    const gwResp = await fetch(targetUrl, { method, headers, body });
+
+    res.status(gwResp.status);
+    gwResp.headers.forEach((v, k) => {
+      const kk = k.toLowerCase();
+      if (kk === "transfer-encoding") return;
+      // si node-fetch descomprime, no reenviamos content-encoding para evitar líos
+      if (kk === "content-encoding") return;
+      res.setHeader(k, v);
+    });
+
+    if (gwResp.body) gwResp.body.pipe(res);
+    else res.end();
+  } catch (e) {
+    console.error("proxy_error", e);
+    res.status(500).type("text/plain").send("proxy_error");
+  }
+});
+
+// SPA fallback (si no es /api)
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/api")) return res.status(404).json({ detail: "Not Found" });
+  res.sendFile(path.join(DIST, "index.html"));
+});
+
+app.listen(PORT, () => console.log("scankey-web listening on", PORT));
