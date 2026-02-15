@@ -136,7 +136,7 @@ const HomeScreen = memo(({ onScan, setScreen, isOnline, onOpenProfile }: any) =>
          <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Protocolo de luz</span>
        </div>
        <p className="text-zinc-400 text-sm font-medium leading-relaxed">
-         Recuerda que para una identificación >95% es vital un fondo blanco mate y evitar sombras proyectadas.
+         Recuerda que para una identificación ≥95% es vital un fondo blanco mate y evitar sombras proyectadas.
        </p>
     </div>
   </div>
