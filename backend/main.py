@@ -5,10 +5,10 @@ import random
 from typing import Optional, List
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from .schemas import AnalyzeResponse, FeedbackRequest, HealthResponse
-from .utils.normalize import normalize_engine_output
-from .utils.logging import logger, setup_logging
-from .utils.rate_limit import is_rate_limited
+from schemas import AnalyzeResponse, FeedbackRequest, HealthResponse
+from utils.normalize import normalize_engine_output
+from utils.logging import logger, setup_logging
+from utils.rate_limit import is_rate_limited
 import os
 
 # Lead Engineer - Backend Observability & Operations
