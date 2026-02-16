@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || 8080);
 const GW_URL = process.env.GW_URL;
 const GW_API_KEY = process.env.GW_API_KEY;
+const GIT_SHA = process.env.GIT_SHA || "unknown";
 
 if (!GW_URL) { console.error("Missing GW_URL"); process.exit(1); }
 if (!GW_API_KEY) { console.error("Missing GW_API_KEY"); process.exit(1); }
@@ -16,33 +17,28 @@ if (!GW_API_KEY) { console.error("Missing GW_API_KEY"); process.exit(1); }
 const app = express();
 app.disable("x-powered-by");
 
-// --- health (estable, sin cache) ---
+// --- health (estable, sin cache, con marcador) ---
 function HEALTH(_req, res) {
   res
     .set("cache-control", "no-store")
     .set("x-scankey-web", "1")
-    .json({ ok: true, service: "scankey-web" });
+    .json({ ok: true, service: "scankey-web", git_sha: GIT_SHA });
 }
-// Canonical (usa este en smoke tests)
 app.get("/sk-health", HEALTH);
-// Alternativo seguro
 app.get("/_health", HEALTH);
-// Si /healthz está “raro”/interceptado, al menos aquí queda definido
 app.get("/healthz", HEALTH);
 
 // --- static (Vite dist) ---
 const DIST = path.join(__dirname, "..", "dist");
 app.use(express.static(DIST));
 
-// --- path mapping hacia GW ---
-function mapUpstreamPath(originalUrl) {
-  if (originalUrl === "/api/openapi.json") return "/openapi.json";
-  if (originalUrl === "/api/docs") return "/docs";
-  if (originalUrl.startsWith("/api/docs/")) return originalUrl.replace("/api/docs", "/docs");
-  if (originalUrl === "/api/redoc") return "/redoc";
-  if (originalUrl === "/api/health") return "/health";
-  // El gateway real usa /api/analyze-key (NO tocar)
-  return originalUrl;
+function mapUpstreamPath(p) {
+  if (p === "/api/openapi.json") return "/openapi.json";
+  if (p === "/api/docs") return "/docs";
+  if (p.startsWith("/api/docs/")) return p.replace("/api/docs", "/docs");
+  if (p === "/api/redoc") return "/redoc";
+  if (p === "/api/health") return "/health";
+  return p;
 }
 
 // --- API proxy: /api/* -> gateway ---
@@ -86,4 +82,4 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(DIST, "index.html"));
 });
 
-app.listen(PORT, "0.0.0.0", () => console.log("scankey-web listening on", PORT));
+app.listen(PORT, () => console.log("scankey-web listening on", PORT));
