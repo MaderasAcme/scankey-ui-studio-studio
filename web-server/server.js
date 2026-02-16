@@ -16,22 +16,33 @@ if (!GW_API_KEY) { console.error("Missing GW_API_KEY"); process.exit(1); }
 const app = express();
 app.disable("x-powered-by");
 
+// --- health (estable, sin cache) ---
+function HEALTH(_req, res) {
+  res
+    .set("cache-control", "no-store")
+    .set("x-scankey-web", "1")
+    .json({ ok: true, service: "scankey-web" });
+}
+// Canonical (usa este en smoke tests)
+app.get("/sk-health", HEALTH);
+// Alternativo seguro
+app.get("/_health", HEALTH);
+// Si /healthz está “raro”/interceptado, al menos aquí queda definido
+app.get("/healthz", HEALTH);
+
 // --- static (Vite dist) ---
 const DIST = path.join(__dirname, "..", "dist");
 app.use(express.static(DIST));
 
-// --- health local ---
-app.get("/healthz", (_req, res) => res.json({ ok: true, service: "scankey-web" }));
-
-function mapUpstreamPath(p) {
-  // FastAPI openapi/docs están en raíz
-  if (p === "/api/openapi.json") return "/openapi.json";
-  if (p === "/api/docs") return "/docs";
-  if (p.startsWith("/api/docs/")) return p.replace("/api/docs", "/docs");
-  if (p === "/api/redoc") return "/redoc";
-  if (p === "/api/health") return "/health";
-  // El gateway REAL usa /api/analyze-key (NO tocar)
-  return p;
+// --- path mapping hacia GW ---
+function mapUpstreamPath(originalUrl) {
+  if (originalUrl === "/api/openapi.json") return "/openapi.json";
+  if (originalUrl === "/api/docs") return "/docs";
+  if (originalUrl.startsWith("/api/docs/")) return originalUrl.replace("/api/docs", "/docs");
+  if (originalUrl === "/api/redoc") return "/redoc";
+  if (originalUrl === "/api/health") return "/health";
+  // El gateway real usa /api/analyze-key (NO tocar)
+  return originalUrl;
 }
 
 // --- API proxy: /api/* -> gateway ---
@@ -57,7 +68,6 @@ app.all("/api/*", async (req, res) => {
     gwResp.headers.forEach((v, k) => {
       const kk = k.toLowerCase();
       if (kk === "transfer-encoding") return;
-      // si node-fetch descomprime, no reenviamos content-encoding para evitar líos
       if (kk === "content-encoding") return;
       res.setHeader(k, v);
     });
@@ -76,4 +86,4 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(DIST, "index.html"));
 });
 
-app.listen(PORT, () => console.log("scankey-web listening on", PORT));
+app.listen(PORT, "0.0.0.0", () => console.log("scankey-web listening on", PORT));
